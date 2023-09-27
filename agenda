@@ -1,0 +1,121 @@
+#include <iostream>
+#include <vector>
+#include <string>
+#include <boost/date_time.hpp>
+#include <boost/algorithm/string.hpp>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
+using namespace std;
+namespace pt = boost::posix_time;
+
+// Estructura para representar un evento
+struct Event {
+    string title;
+    string description;
+    pt::ptime time;
+};
+
+// Función para mostrar notificaciones
+void showNotification(const string& message) {
+#ifdef _WIN32
+    // Windows
+    MessageBoxA(nullptr, message.c_str(), "Agenda Notification", MB_ICONINFORMATION | MB_OK);
+#else
+    // Unix/Linux (Assuming you have a notification daemon installed)
+    string command = "notify-send 'Agenda Notification' '" + message + "'";
+    system(command.c_str());
+#endif
+}
+
+int main() {
+    vector<Event> agenda;
+    while (true) {
+        cout << "=== Agenda ===" << endl;
+        cout << "1. Agregar nota" << endl;
+        cout << "2. Agregar evento" << endl;
+        cout << "3. Mostrar agenda" << endl;
+        cout << "4. Salir" << endl;
+
+        int opcion;
+        cin >> opcion;
+        cin.ignore();
+
+        switch (opcion) {
+            case 1: {
+                string nota;
+                cout << "Ingrese una nota: ";
+                getline(cin, nota);
+                // Agregar la nota a la agenda
+                agenda.push_back({nota, "", pt::ptime()});
+                cout << "Nota agregada con éxito." << endl;
+                break;
+            }
+            case 2: {
+                Event evento;
+                cout << "Título del evento: ";
+                getline(cin, evento.title);
+                cout << "Descripción del evento: ";
+                getline(cin, evento.description);
+
+                int year, month, day, hour, minute;
+                cout << "Año: ";
+                cin >> year;
+                cout << "Mes (1-12): ";
+                cin >> month;
+                cout << "Día (1-31): ";
+                cin >> day;
+                cout << "Hora (0-23): ";
+                cin >> hour;
+                cout << "Minuto (0-59): ";
+                cin >> minute;
+
+                tm timeinfo = {};
+                timeinfo.tm_year = year - 1900;
+                timeinfo.tm_mon = month - 1;
+                timeinfo.tm_mday = day;
+                timeinfo.tm_hour = hour;
+                timeinfo.tm_min = minute;
+                evento.time = pt::ptime_from_tm(timeinfo);
+
+                // Agregar el evento a la agenda
+                agenda.push_back(evento);
+                cout << "Evento agregado con éxito." << endl;
+                break;
+            }
+            case 3: {
+                cout << "=== Agenda ===" << endl;
+                for (const Event& item : agenda) {
+                    cout << "Título: " << item.title << endl;
+                    if (!item.description.empty()) {
+                        cout << "Descripción: " << item.description << endl;
+                    }
+                    if (!item.time.is_not_a_date_time()) {
+                        cout << "Fecha y hora: " << pt::to_simple_string(item.time) << endl;
+                        // Verificar si se debe mostrar una notificación para el evento
+                        if (item.time > pt::second_clock::local_time()) {
+                            pt::time_duration diff = item.time - pt::second_clock::local_time();
+                            if (diff < pt::minutes(1)) {
+                                // Mostrar notificación 1 minuto antes del evento
+                                string notifMessage = "Recordatorio: " + item.title + " - " + item.description;
+                                showNotification(notifMessage);
+                            }
+                        }
+                    }
+                    cout << "----------------------------------" << endl;
+                }
+                break;
+            }
+            case 4:
+                return 0;
+            default:
+                cout << "Opción no válida." << endl;
+        }
+    }
+
+    return 0;
+}
